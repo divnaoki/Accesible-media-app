@@ -23,24 +23,28 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
+      if (!data.user) {
+        throw new Error("ログインに失敗しました");
+      }
+
       toast({
         title: "ログイン成功",
-        description: "ダッシュボードに移動します",
+        description: "シンボル一覧画面に移動します",
       });
 
-      router.push("/dashboard");
+      router.push("/symbols");
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "エラー",
-        description: "ログインに失敗しました。メールアドレスとパスワードを確認してください。",
+        description: error.message || "ログインに失敗しました。メールアドレスとパスワードを確認してください。",
       });
     } finally {
       setLoading(false);
@@ -101,6 +105,14 @@ export default function Login() {
             {loading ? "ログイン中..." : "ログイン"}
           </Button>
         </form>
+
+        <div className="text-center text-sm text-muted-foreground">
+          アカウントをお持ちでない方は
+          <Link href="/signup" className="text-primary hover:underline ml-1">
+            新規登録
+          </Link>
+          してください
+        </div>
       </Card>
     </main>
   );

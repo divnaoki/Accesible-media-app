@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +15,8 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -33,18 +36,50 @@ export default function SignUp() {
     }
 
     try {
-      // バックエンド処理は別途実装予定
-      toast({
-        title: "アカウント作成成功",
-        description: "ログイン画面に移動します",
+      // アカウント作成
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
-      router.push("/login");
+      if (authError) throw authError;
+
+      if (!authData.user) {
+        throw new Error("ユーザー作成に失敗しました");
+      }
+
+      // 既存のプロフィールをチェック
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (!existingProfile) {
+        // プロフィール作成
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              id: authData.user.id,
+              username,
+              display_name: displayName,
+            },
+          ]);
+
+        if (profileError) throw profileError;
+      }
+
+      // 確認メール送付完了画面にリダイレクト
+      router.push("/verify-email");
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "エラー",
-        description: "アカウントの作成に失敗しました。もう一度お試しください。",
+        description: error.message || "アカウントの作成に失敗しました。もう一度お試しください。",
       });
     } finally {
       setLoading(false);
@@ -78,6 +113,30 @@ export default function SignUp() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@example.com"
+                required
+                className="h-12 text-lg"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">ユーザー名</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="h-12 text-lg"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="displayName">表示名</Label>
+              <Input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
                 required
                 className="h-12 text-lg"
               />
